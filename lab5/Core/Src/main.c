@@ -46,11 +46,12 @@ DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
 uint8_t RxBuffer[20];
-uint8_t TxBuffer[40];
+uint8_t TxBuffer[200];
+uint8_t menu[] = "Mode Selection\r\n"
+						"- Press 0 for Led Control\r\n"
+						"- Press 1 for Button Status\r\n";
 uint8_t Mode_state = 0;
-uint8_t led[] = "Led Control\r\n- Press a for speed up 1 Hz.\r\n- Press s for slow down 1 Hz.\r\n- Press d for ON/OFF LED.\r\n- Press x for main menu.\r\n";
-uint8_t button[] = "Button Status\r\n- Press x for main menu\r\n";
-uint8_t menu[] = "Mode Selection\r\n- Press 0 for Led Control\r\n- Press 1 for Button Status\r\n";
+uint8_t Button_state;
 uint16_t frequency = 5;
 uint32_t count = 0;
 /* USER CODE END PV */
@@ -61,7 +62,7 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
-void DummyTask();
+void Blink();
 void ToggleLED();
 void UARTInterruptConfig();
 void UARTDMAConfig();
@@ -103,11 +104,9 @@ int main(void)
   MX_DMA_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-
-
   HAL_UART_Transmit_IT(&huart2, menu, strlen((char*)menu));
   UARTInterruptConfig();
-  UARTDMAConfig();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -115,9 +114,14 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+	  Button_state = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
 	  if(count%2 == 1)
 	  {
-		  DummyTask();
+		  Blink();
+	  }
+	  else
+	  {
+		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, 0);
 	  }
 
     /* USER CODE BEGIN 3 */
@@ -259,7 +263,7 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 void UARTInterruptConfig()
 {
-	HAL_UART_Receive_IT(&huart2, RxBuffer, 10);
+	HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
@@ -273,24 +277,43 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			if(RxBuffer[0] == '0')
 			{
 				Mode_state = 1;
-				HAL_UART_Transmit_DMA(&huart2, led, strlen((char*)led));
+				//HAL_UART_Transmit_IT(&huart2, led, strlen((char*)led));
 				RxBuffer[1] = '\0';
-				sprintf((char*)TxBuffer,"\r\nReceived : %s\r\n",RxBuffer);
-				HAL_UART_Transmit_DMA(&huart2, TxBuffer, strlen((char*)TxBuffer));
+				sprintf((char*)TxBuffer,"\r\nReceived : %s\r\n"
+										"Led Control\r\n"
+						"Current Frequency : %d\r\n"
+						"- Press a for speed up 1 Hz.\r\n"
+						"- Press s for slow down 1 Hz.\r\n"
+						"- Press d for ON/OFF LED.\r\n"
+						"- Press x for main menu.\r\n"
+						,RxBuffer,frequency);
+				HAL_UART_Transmit_IT(&huart2, TxBuffer, strlen((char*)TxBuffer));
 				HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
 
 			}
 			else if(RxBuffer[0] == '1')
 			{
 				Mode_state = 2;
-				HAL_UART_Transmit_IT(&huart2, button, strlen((char*)button));
+				RxBuffer[1] = '\0';
+				sprintf((char*)TxBuffer,"\r\nReceived : %s\r\n"
+						"Button Status : %d\r\n"
+						"- Press x for main menu\r\n"
+						,RxBuffer,Button_state);
+				HAL_UART_Transmit_IT(&huart2, TxBuffer, strlen((char*)TxBuffer));
+				HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
 			}
 			else
 			{
-				HAL_UART_Transmit_IT(&huart2, menu, strlen((char*)menu));
+
 				RxBuffer[1] = '\0';
-				sprintf((char*)TxBuffer,"\r\nReceived : %s\r\n",RxBuffer);
+				sprintf((char*)TxBuffer,"\r\nReceived : %s\r\n"
+						"Wrong Button"
+						"Mode Selection\r\n"
+						"- Press 0 for Led Control\r\n"
+						"- Press 1 for Button Status\r\n"
+						,RxBuffer);
 				HAL_UART_Transmit_IT(&huart2, TxBuffer, strlen((char*)TxBuffer));
+				HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
 			}
 			break;
 
@@ -299,25 +322,63 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			if(RxBuffer[0] == 'a')
 			{
 				frequency += 1;
-				HAL_UART_Transmit_IT(&huart2, led, strlen((char*)led));
+				RxBuffer[1] = '\0';
+				sprintf((char*)TxBuffer,"\r\nReceived : %s\r\n"
+										"Led Control\r\n"
+										"Current Frequency : %d\r\n"
+										"- Press a for speed up 1 Hz.\r\n"
+										"- Press s for slow down 1 Hz.\r\n"
+										"- Press d for ON/OFF LED.\r\n"
+										"- Press x for main menu.\r\n"
+										,RxBuffer,frequency);
+				HAL_UART_Transmit_IT(&huart2, TxBuffer, strlen((char*)TxBuffer));
+				HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
 
 			}
 			else if(RxBuffer[0] == 's')
 			{
 				frequency -= 1;
-				HAL_UART_Transmit_IT(&huart2, led, strlen((char*)led));
+				RxBuffer[1] = '\0';
+				sprintf((char*)TxBuffer,"\r\nReceived : %s\r\n"
+										"Led Control\r\n"
+										"Current Frequency : %d\r\n"
+										"- Press a for speed up 1 Hz.\r\n"
+										"- Press s for slow down 1 Hz.\r\n"
+										"- Press d for ON/OFF LED.\r\n"
+										"- Press x for main menu.\r\n"
+										,RxBuffer,frequency);
+				HAL_UART_Transmit_IT(&huart2, TxBuffer, strlen((char*)TxBuffer));
+				HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
 			}
 			else if(RxBuffer[0] == 'd')
 			{
-				ToggleLED();
+
 				count += 1;
-				HAL_UART_Transmit_IT(&huart2, led, strlen((char*)led));
+				RxBuffer[1] = '\0';
+				sprintf((char*)TxBuffer,"\r\nReceived : %s\r\n"
+										"Led Control\r\n"
+										"Current Frequency : %d\r\n"
+										"- Press a for speed up 1 Hz.\r\n"
+										"- Press s for slow down 1 Hz.\r\n"
+										"- Press d for ON/OFF LED.\r\n"
+										"- Press x for main menu.\r\n"
+										,RxBuffer,frequency);
+				HAL_UART_Transmit_IT(&huart2, TxBuffer, strlen((char*)TxBuffer));
+				HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
 			}
 			else if(RxBuffer[0] == 'x')
 			{
 				Mode_state = 0;
-				HAL_UART_Transmit_IT(&huart2, menu, strlen((char*)menu));
+				RxBuffer[1] = '\0';
+				sprintf((char*)TxBuffer,"\r\nReceived : %s\r\n"
+										"Mode Selection\r\n"
+										"- Press 0 for Led Control\r\n"
+										"- Press 1 for Button Status\r\n"
+										,RxBuffer);
+				HAL_UART_Transmit_IT(&huart2, TxBuffer, strlen((char*)TxBuffer));
+				HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
 			}
+			HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
 			break;
 
 		case 2:
@@ -325,39 +386,37 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			if(RxBuffer[0] == 'x')
 			{
 				Mode_state = 0;
-				HAL_UART_Transmit_IT(&huart2, menu, strlen((char*)menu));
+				RxBuffer[1] = '\0';
+				sprintf((char*)TxBuffer,"\r\nReceived : %s\r\n"
+										"Mode Selection\r\n"
+										"- Press 0 for Led Control\r\n"
+										"- Press 1 for Button Status\r\n"
+														,RxBuffer);
+				HAL_UART_Transmit_IT(&huart2, TxBuffer, strlen((char*)TxBuffer));
+				HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
 			}
+			HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+			break;
 		}
-		RxBuffer[1] = '\0';
-		sprintf((char*)TxBuffer,"\r\nReceived : %s\r\n",RxBuffer);
-		HAL_UART_Transmit_IT(&huart2, TxBuffer, strlen((char*)TxBuffer));
-		HAL_UART_Receive_IT(&huart2, RxBuffer, 1);
+
 
 	}
 }
 
-void DummyTask()
+void Blink()
 {
 	static uint32_t timestamp =0;
-	if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_5) == 0	)
-	{
-		if(HAL_GetTick() >= timestamp)
-			{
-				timestamp = HAL_GetTick() + (1000/frequency);
-				HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-			}
-	}
+	if(HAL_GetTick() >= timestamp)
+		{
+			timestamp = HAL_GetTick() + (1000/frequency);
+			HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+		}
+
 
 }
 
-void ToggleLED()
-{
-	HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-}
-void UARTDMAConfig()
-{
-	HAL_UART_Receive_DMA(&huart2, RxBuffer,10);
-}
+
+
 /* USER CODE END 4 */
 
 /**
